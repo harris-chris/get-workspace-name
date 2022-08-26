@@ -6,10 +6,10 @@
 #include <sstream>
 #include <array>
 
-std::string getWMCtrlOutput() {
+std::string getSwaymsgOutput() {
   std::array<char, 128> buffer;
   std::string result;
-  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("wmctrl -d", "r"), pclose);
+  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("swaymsg -t get_outputs", "r"), pclose);
   if (!pipe) {
     throw std::runtime_error("popen() failed");
   }
@@ -19,22 +19,16 @@ std::string getWMCtrlOutput() {
   return result;
 }
 
-std::string parseWMCtrlOutput(std::string wmCtrlOut) {
-  std::istringstream iss(wmCtrlOut);
-  bool activeWS {false};
-  int tabsCounted = 0;
-
+std::string parseSwaymsgOutput(std::string swayOut) {
+  std::istringstream iss(swayOut);
   for (std::string line; std::getline(iss, line); ) {
     for (int i = 0; i < line.length(); ++i) {
-      if (line[i] == '*') {
-        activeWS = true;
-      }
-      if (activeWS) {
-        if (line.substr(i, 2) == std::string("  ")) {
-          ++tabsCounted;
-        }
-        if (tabsCounted == 3) {
-          return line.substr(i+2, line.length());
+      if (line.substr(i, 22) == std::string("\"current_workspace\": \"")) {
+        i = i + 22;
+        for (int ii = 0; i + ii < line.length(); ++ii) {
+          if (line.substr(i + ii, 1) == std::string("\"")) {
+            return line.substr(i, ii);
+          }
         }
       }
     }
@@ -43,7 +37,7 @@ std::string parseWMCtrlOutput(std::string wmCtrlOut) {
 }
 
 int main() {
-  std::string wmCtrlOut = getWMCtrlOutput();
-  std::string out = parseWMCtrlOutput(wmCtrlOut);
+  std::string swayOut = getSwaymsgOutput();
+  std::string out = parseSwaymsgOutput(swayOut);
   std::cout << out << std::endl;
 }
